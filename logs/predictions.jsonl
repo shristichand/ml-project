@@ -1,0 +1,4 @@
+{"endpoint": "math", "model_version": "0.2.0", "prediction": 66.11021331622098, "risk_band": "low", "timestamp": "2026-11-27T09:59:58.186584+00:00"}
+{"endpoint": "background_risk", "model_version": "0.2.0", "prediction": 72.96710861206903, "risk_band": "low", "timestamp": "2026-11-27T09:59:58.189522+00:00"}
+{"endpoint": "math", "model_version": "0.2.0", "prediction": 66.11021331622098, "risk_band": "low", "timestamp": "2026-11-27T10:01:04.888753+00:00"}
+{"endpoint": "background_risk", "model_version": "0.2.0", "prediction": 72.96710861206903, "risk_band": "low", "timestamp": "2026-11-27T10:01:04.890185+00:00"}

@@ -1,111 +1,102 @@
-<html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Student Academic Risk &amp; Performance Monitoring</title>
+    <style>
+        body { font-family: Georgia, serif; max-width: 760px; margin: 2rem auto; line-height: 1.45; color: #1a1a1a; }
+        label { display: block; margin-top: 0.75rem; font-weight: 600; }
+        select, input[type=number] { width: 100%; padding: 0.4rem; margin-top: 0.2rem; }
+        button, input[type=submit] { margin-top: 1rem; padding: 0.5rem 1rem; }
+        .error { color: #9f1239; }
+        .result { border: 1px solid #ccc; padding: 1rem; margin-top: 1.5rem; background: #fafafa; }
+        .note { background: #f8f4e8; padding: 0.75rem 1rem; }
+        nav a { margin-right: 1rem; }
+        .band-high { color: #9f1239; }
+        .band-watch { color: #9a3412; }
+        .band-low { color: #166534; }
+        ul { padding-left: 1.2rem; }
+    </style>
+</head>
 <body>
-    <div class="login">
-       <h1>Student Exam Performance Indicator</h1>
-   
-       <form action="{{ url_for('predict_datapoint')}}" method="post">
-        <h1>
-            <legend>Student Exam Performance Prediction</legend>
-        </h1>
-        <div class="mb-3">
-            <label class="form-label">Gender</label>
-            <select class="form-control" name="gender" placeholder="Enter you Gender" required>
-                <option class="placeholder" selected disabled value="">Select your Gender</option>
-                <option value="male">
-                    Male
-                </option>
-                <option value="female">
-                    Female
-                </option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Race or Ethnicity</label>
-            <select class="form-control" name="ethnicity" placeholder="Enter you ethnicity" required>
-                <option class="placeholder" selected disabled value="">Select Ethnicity</option>
-                <option value="group A">
-                    Group A
-                </option>
-                <option value="group B">
-                    Group B
-                </option>
-                <option value="group C">
-                    Group C
-                </option>
-                <option value="group D">
-                    Group D
-                </option>
-                <option value="group E">
-                    Group E
-                </option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Parental Level of Education</label>
-            <select class="form-control" name="parental_level_of_education"
-                placeholder="Enter you Parent Education" required>
-                <option class="placeholder" selected disabled value="">Select Parent Education</option>
-                <option value="associate's degree">
-                    associate's degree
-                </option>
-                <option value="bachelor's degree">
-                    bachelor's degree
-                </option>
-                <option value="high school">
-                    high school
-                </option>
-                <option value="master's degree">
-                    master's degree
-                </option>
-                <option value="some college">
-                    some college
-                </option>
-                <option value="some high school">
-                    some high school
-                </option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Lunch Type</label>
-            <select class="form-control" name="lunch" placeholder="Enter you Lunch" required>
-                <option class="placeholder" selected disabled value="">Select Lunch Type</option>
-                <option value="free/reduced">
-                    free/reduced
-                </option>
-                <option value="standard">
-                    standard
-                </option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Test preparation Course</label>
-            <select class="form-control" name="test_preparation_course" placeholder="Enter you Course"
-                required>
-                <option class="placeholder" selected disabled value="">Select Test_course</option>
-                <option value="none">
-                    None
-                </option>
-                <option value="completed">
-                    Completed
-                </option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Reading Score out of 100</label>
-            <input class="form-control" type="number" name="reading_score"
-                placeholder="Enter your Reading score" min='0' max='100' required />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Writing Score out of 100</label>
-            <input class="form-control" type="number" name="writing_score"
-                placeholder="Enter your Writing score" min='0' max='100' required />
-        </div>
-        <div class="mb-3">
-            <input class="btn btn-primary" type="submit" value="Predict your Maths Score" required />
-        </div>
+    <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('predict_datapoint') }}">Math score</a>
+        <a href="{{ url_for('predict_risk') }}">Background profile</a>
+    </nav>
+
+    {% if mode != 'background' %}
+    <h1>Math exam score prediction</h1>
+    <p class="note">This is the original predictor. Reading and writing are concurrent exam scores, so the math-risk band is <strong>same-exam monitoring</strong>, not early identification.</p>
+    <form action="{{ url_for('predict_datapoint') }}" method="post">
+        {% include '_student_fields.html' %}
+        <label>Reading score (0–100)
+            <input type="number" name="reading_score" min="0" max="100" step="any" required
+                   value="{{ request.form.get('reading_score', '') }}">
+        </label>
+        <label>Writing score (0–100)
+            <input type="number" name="writing_score" min="0" max="100" step="any" required
+                   value="{{ request.form.get('writing_score', '') }}">
+        </label>
+        <input type="submit" value="Predict math score">
     </form>
-    <h2>
-       THE  prediction is {{results}}
-    </h2>
+    {% endif %}
+
+    {% if mode == 'background' %}
+    <h1>Background academic risk profile</h1>
+    <p class="note">Uses only fields available without exam scores. Expected accuracy is much lower than the math model. Do not treat the flag as a decision about a student.</p>
+    <form action="{{ url_for('predict_risk') }}" method="post">
+        {% include '_student_fields.html' %}
+        <input type="submit" value="Estimate overall risk profile">
+    </form>
+    {% endif %}
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if results is defined and math_details %}
+    <div class="result">
+        <h2>Predicted math score: {{ '%.2f'|format(math_details.predicted_math_score) }}</h2>
+        <p class="band-{{ math_details.risk.band }}"><strong>{{ math_details.risk.label }}</strong> (band: {{ math_details.risk.band }})</p>
+        <p>{{ math_details.caveat }}</p>
+        {% if math_details.explanations %}
+        <h3>Associated factors (not causes)</h3>
+        <ul>
+            {% for item in math_details.explanations %}
+            <li>
+                {{ item.feature }}
+                {% if item.contribution is defined %}contribution {{ '%.2f'|format(item.contribution) }}{% endif %}
+                {% if item.importance is defined %}importance {{ '%.3f'|format(item.importance) }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% elif results is defined %}
+    <h2>THE prediction is {{ results }}</h2>
+    {% endif %}
+
+    {% if background_details %}
+    <div class="result">
+        <h2>Predicted average score: {{ '%.2f'|format(background_details.predicted_average_score) }}</h2>
+        <p class="band-{{ background_details.risk.band }}"><strong>{{ background_details.risk.label }}</strong> (band: {{ background_details.risk.band }})</p>
+        <p>{{ background_details.caveat }}</p>
+        {% if background_details.explanations %}
+        <h3>Associated factors (not causes)</h3>
+        <ul>
+            {% for item in background_details.explanations %}
+            <li>
+                {{ item.feature }}
+                {% if item.contribution is defined %}contribution {{ '%.2f'|format(item.contribution) }}{% endif %}
+                {% if item.importance is defined %}importance {{ '%.3f'|format(item.importance) }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <p>Model version {{ model_version }}</p>
 </body>
 </html>

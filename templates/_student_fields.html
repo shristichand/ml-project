@@ -1,0 +1,37 @@
+<label>Gender
+    <select name="gender" required>
+        <option value="" disabled {% if not request.form.get('gender') %}selected{% endif %}>Select gender</option>
+        <option value="male" {% if request.form.get('gender')=='male' %}selected{% endif %}>Male</option>
+        <option value="female" {% if request.form.get('gender')=='female' %}selected{% endif %}>Female</option>
+    </select>
+</label>
+<label>Race or ethnicity
+    <select name="ethnicity" required>
+        <option value="" disabled {% if not request.form.get('ethnicity') %}selected{% endif %}>Select ethnicity</option>
+        {% for g in ['group A','group B','group C','group D','group E'] %}
+        <option value="{{ g }}" {% if request.form.get('ethnicity')==g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+    </select>
+</label>
+<label>Parental level of education
+    <select name="parental_level_of_education" required>
+        <option value="" disabled {% if not request.form.get('parental_level_of_education') %}selected{% endif %}>Select parent education</option>
+        {% for g in ["associate's degree","bachelor's degree","high school","master's degree","some college","some high school"] %}
+        <option value="{{ g }}" {% if request.form.get('parental_level_of_education')==g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+    </select>
+</label>
+<label>Lunch type
+    <select name="lunch" required>
+        <option value="" disabled {% if not request.form.get('lunch') %}selected{% endif %}>Select lunch type</option>
+        <option value="free/reduced" {% if request.form.get('lunch')=='free/reduced' %}selected{% endif %}>free/reduced</option>
+        <option value="standard" {% if request.form.get('lunch')=='standard' %}selected{% endif %}>standard</option>
+    </select>
+</label>
+<label>Test preparation course
+    <select name="test_preparation_course" required>
+        <option value="" disabled {% if not request.form.get('test_preparation_course') %}selected{% endif %}>Select test course</option>
+        <option value="none" {% if request.form.get('test_preparation_course')=='none' %}selected{% endif %}>None</option>
+        <option value="completed" {% if request.form.get('test_preparation_course')=='completed' %}selected{% endif %}>Completed</option>
+    </select>
+</label>

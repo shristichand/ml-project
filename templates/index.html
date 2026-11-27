@@ -1,1 +1,29 @@
-<h1>Welcome to home page</h1>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Student Academic Risk &amp; Performance Monitoring</title>
+    <style>
+        body { font-family: Georgia, serif; max-width: 720px; margin: 3rem auto; line-height: 1.5; color: #1a1a1a; }
+        a { color: #1d4ed8; }
+        .card { border: 1px solid #ddd; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .note { background: #f8f4e8; padding: 0.75rem 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Student Academic Risk &amp; Performance Monitoring System</h1>
+    <p>This project still predicts a math exam score, and now also reports a <strong>monitoring band</strong> and a weaker <strong>background-only</strong> profile.</p>
+    <p class="note">Reading and writing scores are from the <em>same exam sitting</em> as math. Using them is score completion, not early warning. The background model uses only the five categorical fields in the original dataset — no invented features.</p>
+    <div class="card">
+        <h2>Math score (existing task)</h2>
+        <p>Demographics + reading + writing → predicted math score and a math-risk band.</p>
+        <p><a href="{{ url_for('predict_datapoint') }}">Open math predictor</a></p>
+    </div>
+    <div class="card">
+        <h2>Background risk profile (new)</h2>
+        <p>Demographics and support fields only → predicted average of the three scores and an overall risk band. Limited signal; associations can track socioeconomic patterns.</p>
+        <p><a href="{{ url_for('predict_risk') }}">Open background profile</a></p>
+    </div>
+    <p>JSON: <code>POST /api/predict/math</code> and <code>POST /api/predict/risk</code>. Model version {{ model_version }}.</p>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import os
 import sys
 from dataclasses import dataclass
+from typing import Optional
 
 from catboost import CatBoostRegressor
 from sklearn.ensemble import (
@@ -9,112 +10,157 @@ from sklearn.ensemble import (
     RandomForestRegressor,
 )
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from src.config import MATH_MODEL_PATH
 from src.exception import CustomException
 from src.logger import logging
+from src.pipeline.risk import subgroup_regression_report
+from src.utils import (
+    evaluate_model,
+    regression_metrics,
+    save_json,
+    save_object,
+    thresholded_risk_metrics,
+)
 
-from src.utils import save_object, evaluate_model
 
 @dataclass
 class ModelTrainerConfig:
-    trained_model_file_path = os.path.join("artifacts", "model.pkl")
+    trained_model_file_path: str = MATH_MODEL_PATH
+    metrics_file_path: Optional[str] = None
+    task_name: str = "math_score_regression"
+
 
 class ModelTrainer:
-    def __init__(self):
-        self.model_trainer_config = ModelTrainerConfig()
+    def __init__(self, config: Optional[ModelTrainerConfig] = None):
+        self.model_trainer_config = config or ModelTrainerConfig()
 
-    def initiate_model_trainer(self, train_array, test_array):
+    def _candidate_models(self):
+        if os.environ.get("FAST_TRAIN") == "1":
+            return {"Linear Regression": LinearRegression()}
+        return {
+            "Random Forest": RandomForestRegressor(),
+            "Decision Tree": DecisionTreeRegressor(),
+            "Gradient Boosting": GradientBoostingRegressor(),
+            "Linear Regression": LinearRegression(),
+            "K-Neighbors Regressor": KNeighborsRegressor(),
+            "XGBRegressor": XGBRegressor(),
+            "CatBoosting Regressor": CatBoostRegressor(verbose=False),
+            "AdaBoost Regressor": AdaBoostRegressor(),
+        }
+
+    def _param_grid(self):
+        return {
+            "Decision Tree": {
+                "criterion": ["squared_error", "friedman_mse", "absolute_error", "poisson"],
+            },
+            "Random Forest": {"n_estimators": [8, 16, 32, 64, 128, 256]},
+            "Gradient Boosting": {
+                "learning_rate": [0.1, 0.01, 0.05, 0.001],
+                "subsample": [0.6, 0.7, 0.75, 0.8, 0.85, 0.9],
+                "n_estimators": [8, 16, 32, 64, 128, 256],
+            },
+            "Linear Regression": {},
+            "K-Neighbors Regressor": {},
+            "XGBRegressor": {
+                "learning_rate": [0.1, 0.01, 0.05, 0.001],
+                "n_estimators": [8, 16, 32, 64, 128, 256],
+            },
+            "CatBoosting Regressor": {
+                "depth": [6, 8, 10],
+                "learning_rate": [0.01, 0.05, 0.1],
+                "iterations": [30, 50, 100],
+            },
+            "AdaBoost Regressor": {
+                "learning_rate": [0.1, 0.01, 0.5, 0.001],
+                "n_estimators": [8, 16, 32, 64, 128, 256],
+            },
+        }
+
+    def initiate_model_trainer(
+        self,
+        train_array,
+        test_array,
+        feature_names=None,
+        test_frame=None,
+        risk_threshold: Optional[float] = None,
+    ):
         try:
-
             logging.info("Split training and test input data")
-
             X_train, y_train, X_test, y_test = (
                 train_array[:, :-1],
                 train_array[:, -1],
                 test_array[:, :-1],
-                test_array[:, -1]
+                test_array[:, -1],
             )
 
-            models = {
-                "Random Forest": RandomForestRegressor(),
-                "Decision Tree": DecisionTreeRegressor(),
-                "Gradient Boosting": GradientBoostingRegressor(),
-                "Linear Regression": LinearRegression(),
-                "K-Neighbors Regressor": KNeighborsRegressor(),
-                "XGBRegressor": XGBRegressor(),
-                "CatBoosting Regressor": CatBoostRegressor(verbose=False),
-                "AdaBoost Regressor": AdaBoostRegressor(),
-            }
+            models = self._candidate_models()
+            params = self._param_grid()
 
-            params={
-                "Decision Tree": {
-                    'criterion':['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
-                    # 'splitter':['best','random'],
-                    # 'max_features':['sqrt','log2'],
-                },
-                "Random Forest":{
-                    # 'criterion':['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
-                 
-                    # 'max_features':['sqrt','log2',None],
-                    'n_estimators': [8,16,32,64,128,256]
-                },
-                "Gradient Boosting":{
-                    # 'loss':['squared_error', 'huber', 'absolute_error', 'quantile'],
-                    'learning_rate':[.1,.01,.05,.001],
-                    'subsample':[0.6,0.7,0.75,0.8,0.85,0.9],
-                    # 'criterion':['squared_error', 'friedman_mse'],
-                    # 'max_features':['auto','sqrt','log2'],
-                    'n_estimators': [8,16,32,64,128,256]
-                },
-                "Linear Regression":{},
-                "K-Neighbors Regressor":{},
-                "XGBRegressor":{
-                    'learning_rate':[.1,.01,.05,.001],
-                    'n_estimators': [8,16,32,64,128,256]
-                },
-                "CatBoosting Regressor":{
-                    'depth': [6,8,10],
-                    'learning_rate': [0.01, 0.05, 0.1],
-                    'iterations': [30, 50, 100]
-                },
-                "AdaBoost Regressor":{
-                    'learning_rate':[.1,.01,0.5,.001],
-                    # 'loss':['linear','square','exponential'],
-                    'n_estimators': [8,16,32,64,128,256]
-                }
-                
-            }
+            model_report, fitted_models = evaluate_model(
+                X_train=X_train,
+                y_train=y_train,
+                X_test=X_test,
+                y_test=y_test,
+                models=models,
+                param=params,
+            )
 
-            model_report: dict = evaluate_model(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
-                                                 models=models, param=params)
+            best_model_name = max(
+                model_report.keys(), key=lambda name: model_report[name]["cv_r2"]
+            )
+            best_model_cv = model_report[best_model_name]["cv_r2"]
+            best_model = fitted_models[best_model_name]
 
-            best_model_score = max(sorted(model_report.values()))
+            logging.info(
+                f"Best model found, Model Name: {best_model_name}, CV R2 Score: {best_model_cv}"
+            )
 
-            best_model_name = list(model_report.keys())[
-                list(model_report.values()).index(best_model_score)
-            ]
-
-            best_model = models[best_model_name]
-
-            logging.info(f"Best model found, Model Name: {best_model_name}, R2 Score: {best_model_score}")
-
-            if best_model_score < 0.6:
+            if (
+                self.model_trainer_config.task_name == "math_score_regression"
+                and best_model_cv < 0.6
+            ):
                 raise CustomException("No best model found", sys)
 
-            logging.info("Best model found on both training and testing dataset")
-
-            # preprocessing_obj = save_object(file_path=preprocessor_path, obj=preprocessor_path)
-
-            save_object(file_path=self.model_trainer_config.trained_model_file_path, obj=best_model)
+            save_object(
+                file_path=self.model_trainer_config.trained_model_file_path,
+                obj=best_model,
+            )
 
             predicted = best_model.predict(X_test)
-            r2_square = r2_score(y_test, predicted)
+            test_metrics = regression_metrics(y_test, predicted)
 
-            return r2_square
+            payload = {
+                "task": self.model_trainer_config.task_name,
+                "best_model": best_model_name,
+                "selection_criterion": "cv_r2",
+                "cv_r2": best_model_cv,
+                "best_params": model_report[best_model_name]["best_params"],
+                "feature_names": feature_names or [],
+                "train": model_report[best_model_name]["train"],
+                "test": test_metrics,
+                "all_models": model_report,
+            }
+
+            if risk_threshold is not None:
+                payload["thresholded_risk_on_test"] = thresholded_risk_metrics(
+                    y_test, predicted, risk_threshold
+                )
+
+            if test_frame is not None:
+                payload["fairness_mae_by_group"] = subgroup_regression_report(
+                    test_frame, y_test, predicted
+                )
+
+            metrics_path = self.model_trainer_config.metrics_file_path
+            if metrics_path:
+                save_json(metrics_path, payload)
+
+            logging.info(f"Test R2 for selected model: {test_metrics['r2']}")
+            return test_metrics["r2"], payload
 
         except Exception as e:
             raise CustomException(e, sys)
